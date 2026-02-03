@@ -1,96 +1,244 @@
 # Power BI Custom Visual — PAT Progress Visual
 
-Este repositório contém um **visual customizado do Power BI** (projeto `pbiviz`) chamado **PAT Progress Visual**, criado para exibir o **desempenho/progresso (%) por Eixo e por Ano** em um layout de barras segmentadas.
+Este repositório contém um **visual customizado do Power BI**, desenvolvido com o **Power BI Visuals SDK (`pbiviz`)**, para exibir o **desempenho (%) por Eixo ao longo dos Anos** em barras horizontais segmentadas.
 
-O visual renderiza:
-- Uma linha por **Eixo** (ex.: E1, E2, E3…)
-- Um valor de **% médio** do eixo
-- Uma **barra segmentada** por **Ano**, com intensidade de cor variando conforme o % (mais forte = melhor; mais claro = abaixo)
-- Uma **marcação do “próximo ano”** (linha vertical) para ajudar a comparar o avanço para o próximo período
-- Uma linha única de **anos no rodapé** (não repete em cada barra)
+O visual foi criado para uso **institucional/corporativo**, permitindo análise visual rápida do progresso por eixo estratégico.
 
-## Estrutura do projeto
-- `patProgressVisual/` — projeto do visual (Power BI Visuals)
-  - `src/visual.ts` — lógica de renderização do visual
-  - `capabilities.json` — papéis de dados (dataRoles) e mapeamentos
-  - `pbiviz.json` — manifesto do visual (nome, guid, versão, etc.)
-  - `style/visual.less` — estilos (mínimo; a maior parte está inline no `visual.ts`)
+---
 
-## Campos (data roles)
-No Power BI, arraste os campos para:
-- **Eixo** (Grouping): categoria principal (linha)
-- **Ano** (Grouping): ano/etapa (segmento dentro da barra) — opcional se você usar Mês
-- **Mês** (Grouping): mês/etapa (segmento dentro da barra) — opcional se você usar Ano
-- **Data inicial** (Grouping): início do ciclo (modo progresso) — opcional
-- **Data final** (Grouping): fim do ciclo (modo progresso) — opcional
-- **%** (Measure): valor numérico (aceita 0–1 ou 0–100)
+## 📊 O que este visual mostra
 
-Comportamento:
-- Se **Data inicial + Data final** estiverem preenchidos, o visual entra no **modo progresso**:
-  - Divide o intervalo em **12 partes iguais (M1…M12)** e usa o **%** como preenchimento do progresso.
-- Se **Mês** estiver preenchido, o visual mostra **segmentos por mês** (modo mensal).
-- Se **Mês** não estiver preenchido, o visual mostra **segmentos por ano** (modo anual).
-- Se você preencher **Ano + Mês**, o modo mensal funciona melhor quando há **apenas 1 ano** no contexto (use filtro/slicer de ano).
+Para cada **Eixo** (E1, E2, E3…):
 
-## Como usar (dev)
-Pré‑requisitos:
-- Node.js (LTS recomendado)
-- Power BI Visual Tools (`pbiviz`) instalado globalmente
+- 📈 **% médio** do eixo
+- 🟦 **Barra horizontal segmentada por Ano**
+- 📅 **Anos exibidos abaixo da barra**
+- 🙂 **Indicador visual (emoji)** conforme o desempenho
 
-Dentro da pasta do visual:
+---
+
+## 🧱 Estrutura do projeto
+
+```
+
+patProgressVisual/
+├─ src/
+│  └─ visual.ts           # Lógica principal do visual
+├─ capabilities.json      # Campos (data roles) do visual
+├─ pbiviz.json            # Manifesto (nome, versão, autor)
+├─ style/
+│  └─ visual.less
+├─ dist/                  # Arquivo .pbiviz gerado
+└─ package.json
+
+````
+
+---
+
+## 🧩 Campos usados no Power BI (Data Roles)
+
+Ao usar o visual no Power BI, os seguintes campos devem ser preenchidos:
+
+### Obrigatórios
+- **Eixo** *(Grouping)*  
+  Ex.: `E1`, `E2`, `E3`
+
+- **Ano** *(Grouping)*  
+  Ex.: `2021`, `2022`, `2023`
+
+- **%** *(Measure)*  
+  Ex.: `% PAT`, `% PDI`
+
+### Regra do percentual
+- Valores entre `0 e 1` → interpretados como percentual  
+  Ex.: `0.86` → `86%`
+- Valores entre `0 e 100` → usados diretamente  
+  Ex.: `86` → `86%`
+
+---
+
+## 🖥️ Pré-requisitos (máquina limpa)
+
+### 1️⃣ Instalar Node.js
+- Baixar a versão **LTS** em:  
+  https://nodejs.org/
+
+Verificar instalação:
+```powershell
+node -v
+npm -v
+````
+
+---
+
+### 2️⃣ Instalar PowerShell 7 (OBRIGATÓRIO)
+
+O Power BI Visual Tools usa o comando `pwsh`.
+
+* Instalar pela Microsoft Store:
+  [https://www.microsoft.com/store/productId/9MZ1SNWT0N5D](https://www.microsoft.com/store/productId/9MZ1SNWT0N5D)
+
+Verificar instalação:
+
+```powershell
+pwsh -v
+```
+
+> ⚠️ **PowerShell antigo (Windows PowerShell 5)** não funciona para gerar certificados.
+
+---
+
+### 3️⃣ Instalar Power BI Visual Tools
+
+```powershell
+npm install -g powerbi-visuals-tools
+```
+
+Verificar:
+
+```powershell
+pbiviz
+```
+
+---
+
+## ⚙️ Configurar o Power BI Desktop (passo ESSENCIAL)
+
+No **Power BI Desktop**:
+
+1. Vá em **Arquivo → Opções e configurações → Opções**
+2. Selecione **Configurações do relatório**
+3. Marque:
+
+   * ✅ **Permitir desenvolver um visual**
+4. Clique em **OK**
+5. **Feche e reabra o Power BI Desktop**
+
+> Sem essa opção marcada, o visual **não carrega em modo desenvolvimento**.
+
+---
+
+## 🛠️ Modo desenvolvimento (para quem vai alterar o código)
+
+### 1️⃣ Entrar na pasta do projeto
+
 ```powershell
 cd patProgressVisual
+```
+
+### 2️⃣ Instalar dependências
+
+```powershell
 npm install
+```
+
+### 3️⃣ Gerar certificado local
+
+```powershell
+pbiviz install-cert
+```
+
+> Execute **uma única vez por máquina**.
+
+---
+
+### 4️⃣ Rodar o visual em modo dev
+
+```powershell
 pbiviz start
 ```
 
-Isso inicia o servidor local do visual para testes em um relatório do Power BI.
+Deixe o terminal **aberto**.
 
-## Gerar pacote (.pbiviz)
+---
+
+### 5️⃣ Usar o visual de desenvolvedor no Power BI
+
+No Power BI Desktop:
+
+1. Vá em **Inserir → Mais visuais → Meus Arquivos**
+2. Adicione o visual à página
+3. Arraste os campos:
+
+   * **Eixo**
+   * **Ano**
+   * **%**
+
+O visual será atualizado automaticamente a cada alteração no código.
+
+---
+
+## 📦 Gerar o pacote (.pbiviz)
+
+Para distribuir ou instalar o visual:
+
 ```powershell
 cd patProgressVisual
 pbiviz package
 ```
 
-O arquivo `.pbiviz` gerado fica em `patProgressVisual/dist/`.
+O arquivo será gerado em:
 
-## Como instalar/importar no Power BI (Desktop)
-Esta seção é para a pessoa responsável por **usar** o visual no Power BI (incluindo a versão de **meses/progresso**).
+```
+patProgressVisual/dist/patProgressVisual.pbiviz
+```
 
-1) Gere o arquivo do visual
-- No terminal, execute:
+---
+
+## 📥 Importar o visual no Power BI (uso final)
+
+1. Abra o **Power BI Desktop**
+2. No painel **Visualizações**, clique em **…**
+3. Selecione **Importar um visual de um arquivo**
+4. Escolha o arquivo `.pbiviz` da pasta `dist`
+5. Confirme o aviso de segurança
+
+O visual aparecerá como um novo ícone.
+
+---
+
+## 🔄 Atualizar o visual no Power BI
+
+Sempre que o código mudar:
+
+1. Execute:
+
 ```powershell
-cd patProgressVisual
 pbiviz package
 ```
-- Confirme que existe um arquivo `.pbiviz` dentro de `patProgressVisual/dist/`.
 
-2) Importe o visual no Power BI Desktop
-- Abra o **Power BI Desktop**.
-- No painel **Visualizações**, clique em **… (Mais opções)**.
-- Selecione **Obter mais visuais** (ou **Importar um visual de um arquivo**, dependendo da versão).
-- Escolha **Importar um visual de um arquivo**.
-- Selecione o arquivo `.pbiviz` gerado em `patProgressVisual/dist/`.
-- Confirme o aviso de segurança (visuais customizados podem executar código).
+2. No Power BI:
 
-3) Use o visual no relatório
-- O visual aparecerá no painel **Visualizações** como um novo ícone.
-- Adicione o visual à página e preencha os campos:
-  - **Eixo** (obrigatório)
-  - Escolha um modo:
-    - **Modo progresso (12 meses por período):** preencha **Data inicial** + **Data final**
-    - **Modo mensal por categoria:** preencha **Mês** (e, se houver Ano também, filtre para 1 ano)
-    - **Modo anual:** preencha **Ano**
-  - **%** (medida) para o cálculo do desempenho/progresso
+* Remova o visual antigo
+* Reimporte o novo `.pbiviz`
 
-Dica: se você atualizar o visual (novo `.pbiviz`), basta **reimportar** o arquivo no Power BI Desktop para substituir a versão anterior.
+---
 
-## Personalização no painel de formatação
-O visual expõe uma configuração básica em:
-- **Data colors → Text Size**: controla a base de tamanho do texto (também influencia o tamanho do emoji).
+## ⚠️ Observações importantes
 
-## Observações
-- Se existir algum valor em branco no campo **Eixo**, o visual ignora essa linha (para não aparecer “uma barra sem eixo”).
-- O `Measure` de **%** é tratado como percentual automaticamente:
-  - Se o valor for `0.85`, o visual entende como `85%`
-  - Se o valor for `85`, o visual entende como `85%`
+* Linhas sem **Eixo** são ignoradas
+* O visual apenas **renderiza**, não altera dados
+* O Power BI pode cachear visuais:
+
+  * Se algo não atualizar, **feche e reabra** o relatório
+* Emojis, cores e layout são configuráveis no código (`visual.ts`)
+
+---
+
+## 🧠 Tecnologias utilizadas
+
+* Power BI Visuals SDK (`pbiviz`)
+* TypeScript
+* HTML / CSS
+* Power BI Desktop
+
+---
+
+## 📌 Uso recomendado
+
+* Visual institucional
+* Dashboards estratégicos
+* Monitoramento de desempenho por eixo
+* Uso interno (não publicado no AppSource)
+
+---
