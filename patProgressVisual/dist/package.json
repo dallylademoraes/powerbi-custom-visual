@@ -1,0 +1,17 @@
+{
+		"version": "1.0.0.0",
+		"author": {"name":"Dallyla de Moraes Sousa","email":"moraesdallyla6@gmail.com"},
+		"resources": [
+			{
+				"resourceId": "rId0",
+				"sourceType": 5,
+				"file": "resources/patProgressVisual346D42228CB8402E8C6F55126CCEF34A.pbiviz.json"
+			}
+		],
+		"visual": {"name":"patProgressVisual","displayName":"PAT Progress Visual","guid":"patProgressVisual346D42228CB8402E8C6F55126CCEF34A","visualClassName":"Visual","version":"1.0.0.0","description":"Custom Power BI visual to represent progress by axis and year.","supportUrl":"https://github.com/dallylademoraes/powerbi-custom-visual","gitHubUrl":"https://github.com/dallylademoraes/powerbi-custom-visual"},
+		"metadata": {
+			"pbivizjson": {
+				"resourceId": "rId0"
+			}
+		}
+	}

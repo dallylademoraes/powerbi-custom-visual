@@ -1,0 +1,67 @@
+{
+"dataRoles": [
+  { "displayName": "Eixo", "name": "eixo", "kind": "Grouping" },
+  { "displayName": "Ano",  "name": "ano",  "kind": "Grouping" },
+  { "displayName": "%",    "name": "valor", "kind": "Measure" }
+],
+  "objects": {
+    "dataPoint": {
+      "properties": {
+        "defaultColor": {
+          "type": {
+            "fill": {
+              "solid": {
+                "color": true
+              }
+            }
+          }
+        },
+        "showAllDataPoints": {
+          "type": {
+            "bool": true
+          }
+        },
+        "fill": {
+          "type": {
+            "fill": {
+              "solid": {
+                "color": true
+              }
+            }
+          }
+        },
+        "fillRule": {
+          "type": {
+            "fill": {}
+          }
+        },
+        "fontSize": {
+          "type": {
+            "formatting": {
+              "fontSize": true
+            }
+          }
+        }
+      }
+    }
+  },
+"dataViewMappings": [
+  {
+    "categorical": {
+      "categories": {
+        "select": [
+          { "for": { "in": "eixo" } },
+          { "for": { "in": "ano" } }
+        ],
+        "dataReductionAlgorithm": { "top": {} }
+      },
+      "values": {
+        "select": [
+          { "bind": { "to": "valor" } }
+        ]
+      }
+    }
+  }
+],
+  "privileges": []
+}
