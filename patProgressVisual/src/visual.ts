@@ -55,7 +55,7 @@ public update(options: VisualUpdateOptions) {
     const categorical = dataView?.categorical;
 
     if (!categorical?.categories || categorical.categories.length < 2) {
-        this.target.innerHTML = "Arraste campos para Eixo e Ano.";
+        this.target.innerHTML = "Arraste campos para Eixo + (Ano/Mês) ou Eixo + (Data inicial/Data final).";
         return;
     }
 
@@ -64,8 +64,27 @@ public update(options: VisualUpdateOptions) {
         dataView
     );
 
-    const eixoValues = categorical.categories[0].values.map(v => String(v ?? ""));
-    const anoValues  = categorical.categories[1].values.map(v => String(v ?? ""));
+    const categories = categorical.categories ?? [];
+    const eixoCat = categories.find(c => c.source?.roles?.eixo) ?? categories[0];
+    const anoCat = categories.find(c => c.source?.roles?.ano);
+    const mesCat = categories.find(c => c.source?.roles?.mes);
+    const inicioCat = categories.find(c => c.source?.roles?.inicio);
+    const fimCat = categories.find(c => c.source?.roles?.fim);
+
+    if (!eixoCat || ((!anoCat && !mesCat) && (!inicioCat || !fimCat))) {
+        this.target.innerHTML = "Arraste campos para Eixo + (Ano/Mês) ou Eixo + (Data inicial/Data final).";
+        return;
+    }
+
+    const eixoValues = eixoCat.values.map(v => String(v ?? ""));
+    const anoValues = (anoCat?.values ?? []).map(v => String(v ?? ""));
+    const mesValues = (mesCat?.values ?? []).map(v => String(v ?? ""));
+    const inicioValues = (inicioCat?.values ?? []);
+    const fimValues = (fimCat?.values ?? []);
+
+    const hasMes = mesCat !== undefined && mesValues.length > 0;
+    const hasAno = anoCat !== undefined && anoValues.length > 0;
+    const hasTimeline = inicioCat !== undefined && fimCat !== undefined && inicioValues.length > 0 && fimValues.length > 0;
 
     // Medida opcional (se você estiver usando % no visual)
     const values = categorical.values?.[0]?.values?.map(v => Number(v)) ?? [];
@@ -78,20 +97,43 @@ public update(options: VisualUpdateOptions) {
     const sumByEixoAno = new Map<string, number>();
     const countByEixoAno = new Map<string, number>();
 
-    function makeKey(eixo: string, ano: string): string {
-        return `${eixo}||${ano}`;
+    // eixo -> intervalo (modo timeline)
+    const startByEixo = new Map<string, Date>();
+    const endByEixo = new Map<string, Date>();
+
+    function makeKey(eixo: string, periodo: string): string {
+        return `${eixo}||${periodo}`;
+    }
+
+    function parseDate(v: any): Date | null {
+        if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v;
+        const d = new Date(v);
+        return Number.isNaN(d.getTime()) ? null : d;
     }
 
     for (let i = 0; i < eixoValues.length; i++) {
         const e = eixoValues[i];
-        const a = anoValues[i];
+        const a = anoValues[i] ?? "";
+        const m = mesValues[i] ?? "";
+        const periodo = hasMes ? m : a;
+
+        if (hasTimeline) {
+            const s = parseDate(inicioValues[i]);
+            const f = parseDate(fimValues[i]);
+            if (s && f) {
+                const prevS = startByEixo.get(e);
+                const prevF = endByEixo.get(e);
+                if (!prevS || s < prevS) startByEixo.set(e, s);
+                if (!prevF || f > prevF) endByEixo.set(e, f);
+            }
+        }
 
         const v = values[i];
         if (!Number.isNaN(v)) {
             sumByEixo.set(e, (sumByEixo.get(e) ?? 0) + v);
             countByEixo.set(e, (countByEixo.get(e) ?? 0) + 1);
 
-            const k = makeKey(e, a);
+            const k = makeKey(e, periodo);
             sumByEixoAno.set(k, (sumByEixoAno.get(k) ?? 0) + v);
             countByEixoAno.set(k, (countByEixoAno.get(k) ?? 0) + 1);
         }
@@ -102,7 +144,7 @@ public update(options: VisualUpdateOptions) {
         .filter(v => v.length > 0)
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
 
-    const anos = Array.from(new Set(anoValues))
+    const anosUnicos = Array.from(new Set(anoValues))
         .map(v => v.trim())
         .filter(v => v.length > 0)
         .sort((a, b) => {
@@ -116,6 +158,64 @@ public update(options: VisualUpdateOptions) {
             if (bIsNum) return 1;
             return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
         });
+
+    function monthOrder(label: string): number | null {
+        const s = (label ?? "").trim().toLowerCase();
+        if (!s) return null;
+
+        // 1..12
+        const n = Number(s);
+        if (Number.isFinite(n) && n >= 1 && n <= 12) return n;
+
+        // "01", "1", etc.
+        const n2 = Number(s.replace(/^0+/, ""));
+        if (Number.isFinite(n2) && n2 >= 1 && n2 <= 12) return n2;
+
+        // pt-BR / en
+        const months: Array<Array<string>> = [
+            ["jan", "janeiro", "january"],
+            ["fev", "fevereiro", "feb", "february"],
+            ["mar", "março", "marco", "march"],
+            ["abr", "abril", "apr", "april"],
+            ["mai", "maio", "may"],
+            ["jun", "junho", "june"],
+            ["jul", "julho", "july"],
+            ["ago", "agosto", "aug", "august"],
+            ["set", "setembro", "sep", "september"],
+            ["out", "outubro", "oct", "october"],
+            ["nov", "novembro", "november"],
+            ["dez", "dezembro", "dec", "december"]
+        ];
+        for (let i = 0; i < months.length; i++) {
+            if (months[i].some(k => s.startsWith(k))) return i + 1;
+        }
+        return null;
+    }
+
+    function makeMonthLabelsFromTimeline(): string[] {
+        return ["M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "M10", "M11", "M12"];
+    }
+
+    const periodos = hasTimeline
+        ? makeMonthLabelsFromTimeline()
+        : hasMes
+            ? Array.from(new Set(mesValues))
+                .map(v => v.trim())
+                .filter(v => v.length > 0)
+                .sort((a, b) => {
+                    const ma = monthOrder(a);
+                    const mb = monthOrder(b);
+                    if (ma !== null && mb !== null) return ma - mb;
+                    if (ma !== null) return -1;
+                    if (mb !== null) return 1;
+                    return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+                })
+            : anosUnicos;
+
+    if (!hasTimeline && hasMes && anosUnicos.length > 1) {
+        this.target.innerHTML = "Para visualizar por mês, filtre para um único ano (ou remova o campo Ano).";
+        return;
+    }
 
     // Cores fixas (5 cores mais "sóbrias" e consistentes)
     function colorForYear(_year: string, index: number): string {
@@ -206,39 +306,84 @@ public update(options: VisualUpdateOptions) {
         bar.style.position = "relative";
 
         let lastIdxWithValue = -1;
-        anos.forEach((y, idx) => {
+
+        if (hasTimeline) {
+            // Modo "progresso": divide o intervalo [início, fim] em 12 partes iguais e usa o % como preenchimento.
+            const start = startByEixo.get(eixo);
+            const end = endByEixo.get(eixo);
+
+            if (!start || !end || end.getTime() <= start.getTime()) {
+                // fallback visual: sem datas válidas
+                periodos.forEach((_p, idx) => {
+                    const seg = document.createElement("div");
+                    seg.style.flex = "1";
+                    seg.style.background = "#f1f3f5";
+                    bar.appendChild(seg);
+                });
+            } else {
+                // segmentos neutros
+                periodos.forEach((periodoLabel, idx) => {
+                    const seg = document.createElement("div");
+                    seg.style.flex = "1";
+                    seg.style.background = idx % 2 === 0 ? "#eef2f7" : "#e6edf6";
+                    seg.title = `${eixo} - ${periodoLabel}`;
+                    bar.appendChild(seg);
+                });
+
+                const percent = avg === null ? 0 : Math.max(0, Math.min(100, toPct(avg)));
+                const filled = Math.round((percent / 100) * periodos.length);
+                lastIdxWithValue = Math.max(-1, filled - 1);
+
+                // overlay de preenchimento
+                const fill = document.createElement("div");
+                fill.style.position = "absolute";
+                fill.style.left = "0";
+                fill.style.top = "0";
+                fill.style.bottom = "0";
+                fill.style.width = `${(filled / periodos.length) * 100}%`;
+                fill.style.background = blendWithWhite(colorForYear.call(this, "progress", 0), intensityForPercent(percent));
+                fill.style.opacity = "0.95";
+                fill.style.pointerEvents = "none";
+                bar.appendChild(fill);
+
+                // tooltip com datas
+                bar.title = `${eixo}: ${start.toLocaleDateString()} → ${end.toLocaleDateString()} (${percent.toFixed(0)}%)`;
+            }
+        } else {
+            periodos.forEach((periodoLabel, idx) => {
             const seg = document.createElement("div");
             seg.style.flex = "1";
-            seg.title = `${eixo} - ${y}`;
-            const k = makeKey(eixo, y);
+            seg.title = `${eixo} - ${periodoLabel}`;
+            const k = makeKey(eixo, periodoLabel);
             const c = countByEixoAno.get(k) ?? 0;
             if (c > 0) {
                 lastIdxWithValue = Math.max(lastIdxWithValue, idx);
                 const v = (sumByEixoAno.get(k) ?? 0) / c;
-                const p = toPct(v);
-                const base = colorForYear.call(this, y, idx);
-                seg.style.background = blendWithWhite(base, intensityForPercent(p));
-                seg.title = `${eixo} - ${y}: ${formatPercent(v)}`;
+                const percent = toPct(v);
+                const base = colorForYear.call(this, periodoLabel, idx);
+                seg.style.background = blendWithWhite(base, intensityForPercent(percent));
+                seg.title = `${eixo} - ${periodoLabel}: ${formatPercent(v)}`;
             } else {
                 seg.style.background = "#f1f3f5";
-                seg.title = `${eixo} - ${y}: sem valor`;
+                seg.title = `${eixo} - ${periodoLabel}: sem valor`;
             }
             bar.appendChild(seg);
-        });
+            });
+        }
 
         // Marcação do "próximo ano" (primeiro ano após o último com valor)
         const nextIdx = lastIdxWithValue >= 0 ? lastIdxWithValue + 1 : -1;
-        if (nextIdx >= 0 && nextIdx < anos.length) {
+        if (nextIdx >= 0 && nextIdx < periodos.length) {
             const marker = document.createElement("div");
             marker.style.position = "absolute";
             marker.style.top = "0";
             marker.style.bottom = "0";
-            marker.style.left = `${(nextIdx / anos.length) * 100}%`;
+            marker.style.left = `${(nextIdx / periodos.length) * 100}%`;
             marker.style.width = "3px";
             marker.style.background = "#111";
             marker.style.opacity = "0.55";
             marker.style.pointerEvents = "none";
-            marker.title = `Próximo ano: ${anos[nextIdx]}`;
+            marker.title = hasTimeline ? `Próximo mês: ${periodos[nextIdx]}` : (hasMes ? `Próximo mês: ${periodos[nextIdx]}` : `Próximo ano: ${periodos[nextIdx]}`);
             bar.appendChild(marker);
         }
 
@@ -281,12 +426,12 @@ public update(options: VisualUpdateOptions) {
     yearsRow.style.fontSize = `${Math.max(10, baseFontSize - 1)}px`;
     yearsRow.style.userSelect = "none";
 
-    anos.forEach((y) => {
-        const yEl = document.createElement("div");
-        yEl.textContent = y;
-        yEl.style.flex = "1";
-        yEl.style.textAlign = "center";
-        yearsRow.appendChild(yEl);
+    periodos.forEach((p) => {
+        const pEl = document.createElement("div");
+        pEl.textContent = p;
+        pEl.style.flex = "1";
+        pEl.style.textAlign = "center";
+        yearsRow.appendChild(pEl);
     });
 
     footer.appendChild(yearsRow);

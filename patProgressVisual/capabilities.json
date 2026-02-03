@@ -2,6 +2,9 @@
 "dataRoles": [
   { "displayName": "Eixo", "name": "eixo", "kind": "Grouping" },
   { "displayName": "Ano",  "name": "ano",  "kind": "Grouping" },
+  { "displayName": "Mês",  "name": "mes",  "kind": "Grouping" },
+  { "displayName": "Data inicial", "name": "inicio", "kind": "Grouping" },
+  { "displayName": "Data final",   "name": "fim",    "kind": "Grouping" },
   { "displayName": "%",    "name": "valor", "kind": "Measure" }
 ],
   "objects": {
@@ -51,7 +54,10 @@
       "categories": {
         "select": [
           { "for": { "in": "eixo" } },
-          { "for": { "in": "ano" } }
+          { "for": { "in": "ano" } },
+          { "for": { "in": "mes" } },
+          { "for": { "in": "inicio" } },
+          { "for": { "in": "fim" } }
         ],
         "dataReductionAlgorithm": { "top": {} }
       },
